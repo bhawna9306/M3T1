@@ -1,0 +1,65 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+#define N 100 
+
+void matrixMultiply(int *a, int *b, int *c, int n, int rank, int size) {
+    int chunkSize = N / size;
+    int startIndex = rank * chunkSize;
+    int endIndex = (rank == size - 1) ? N : (rank + 1) * chunkSize;
+
+    for (int i = startIndex; i < endIndex; i++) {
+        for (int j = 0; j < N; j++) {
+            c[i * N + j] = 0;
+            for (int k = 0; k < N; k++) {
+                c[i * N + j] += a[i * N + k] * b[k * N + j];
+            }
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
+    int rank, size;
+    int a[N][N], b[N][N], c[N][N];
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (rank == 0) {
+       
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                a[i][j] = rand() % 10;
+                b[i][j] = rand() % 10;
+            }
+        }
+    }
+
+   
+    MPI_Bcast(&b[0][0], N * N, MPI_INT, 0, MPI_COMM_WORLD);
+
+   
+    MPI_Scatter(&a[0][0], N * N / size, MPI_INT, MPI_IN_PLACE, N * N / size, MPI_INT, 0, MPI_COMM_WORLD);
+
+   
+    matrixMultiply(&a[0][0], &b[0][0], &c[0][0], N, rank, size);
+
+   
+    MPI_Gather(MPI_IN_PLACE, N * N / size, MPI_INT, &c[0][0], N * N / size, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+      
+        printf("Result matrix c:\n");
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                printf("%d ", c[i][j]);
+            }
+            printf("\n");
+        }
+    }
+
+    MPI_Finalize();
+    return 0;
+}
