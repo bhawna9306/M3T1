@@ -3,7 +3,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define N 100 
+#define N 100 // Matrix size
 #define NUM_THREADS 4
 
 void matrixMultiply(int *a, int *b, int *c, int n, int rank, int size) {
@@ -11,15 +11,12 @@ void matrixMultiply(int *a, int *b, int *c, int n, int rank, int size) {
     int startIndex = rank * chunkSize;
     int endIndex = (rank == size - 1) ? N : (rank + 1) * chunkSize;
 
-    #pragma omp parallel num_threads(NUM_THREADS)
-    {
-        int tid = omp_get_thread_num();
-        for (int i = startIndex + tid; i < endIndex; i += NUM_THREADS) {
-            for (int j = 0; j < N; j++) {
-                c[i * N + j] = 0;
-                for (int k = 0; k < N; k++) {
-                    c[i * N + j] += a[i * N + k] * b[k * N + j];
-                }
+    #pragma omp parallel for num_threads(NUM_THREADS)
+    for (int i = startIndex; i < endIndex; i++) {
+        for (int j = 0; j < N; j++) {
+            c[i * N + j] = 0;
+            for (int k = 0; k < N; k++) {
+                c[i * N + j] += a[i * N + k] * b[k * N + j];
             }
         }
     }
@@ -34,7 +31,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     if (rank == 0) {
-        
+       
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
                 a[i][j] = rand() % 10;
@@ -46,16 +43,17 @@ int main(int argc, char *argv[]) {
     
     MPI_Bcast(&b[0][0], N * N, MPI_INT, 0, MPI_COMM_WORLD);
 
-    
+   
     MPI_Scatter(&a[0][0], N * N / size, MPI_INT, MPI_IN_PLACE, N * N / size, MPI_INT, 0, MPI_COMM_WORLD);
 
-  
+   
     matrixMultiply(&a[0][0], &b[0][0], &c[0][0], N, rank, size);
 
+   
     MPI_Gather(MPI_IN_PLACE, N * N / size, MPI_INT, &c[0][0], N * N / size, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
-        
+       
         printf("Result matrix c:\n");
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
